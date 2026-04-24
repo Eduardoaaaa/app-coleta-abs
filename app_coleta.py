@@ -48,26 +48,29 @@ if st.sidebar.button("Sair"):
 
 st.title("📱 Coleta de Estoque")
 
-# Lógica de Acesso Gerencial
 if st.session_state["usuario_perfil"] == "gerente":
     st.info("🔓 Modo Gerencial: Todas as opções de conferência e logs estão liberadas.")
-    # Aqui você pode adicionar botões de deletar registros ou ver logs completos futuramente
 
-# --- FORMULÁRIO DE CONTAGEM (COMUM A TODOS) ---
+# --- FORMULÁRIO DE CONTAGEM ---
 loja_atual = st.selectbox("🏬 Loja atual:", ["ZE - ABS CLUBE", "ZE - ABS CLUBE - B", "ZE - ABS CLUBE - N", "ZE - ABS CLUBE - V"])
 
+# >>> AQUI OCORREU A MUDANÇA (Busca da nova tabela oficial) <<<
 @st.cache_data(ttl=60)
 def buscar_produtos():
-    engine = conectar_banco()
-    with engine.connect() as conn:
-        df = pd.read_sql_query(text("SELECT DISTINCT nome_produto FROM movimentacoes_entrada ORDER BY nome_produto"), conn)
-        return df['nome_produto'].tolist()
+    try:
+        engine = conectar_banco()
+        with engine.connect() as conn:
+            df = pd.read_sql_query(text("SELECT nome_produto FROM produtos_cadastrados ORDER BY nome_produto"), conn)
+            return df['nome_produto'].tolist()
+    except:
+        return []
 
 lista_prods = buscar_produtos()
 
 with st.form("coleta_form", clear_on_submit=True):
     produto = st.selectbox("🔍 Produto:", [""] + lista_prods)
     quantidade = st.number_input("📦 Quantidade:", min_value=1, step=1)
+    
     if st.form_submit_button("Registrar Contagem", use_container_width=True):
         if produto:
             try:
@@ -79,7 +82,7 @@ with st.form("coleta_form", clear_on_submit=True):
                     'cod_produto': 'COLETA_MOBILE',
                     'nome_produto': produto,
                     'quantidade': float(quantidade),
-                    'usuario': st.session_state["usuario_nome"] # Rastreabilidade garantida
+                    'usuario': st.session_state["usuario_nome"] 
                 }])
                 with engine.connect() as conn:
                     dados.to_sql('movimentacoes_entrada', con=conn, if_exists='append', index=False)
